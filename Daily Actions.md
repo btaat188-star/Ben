@@ -85,7 +85,6 @@
 | 🔥 14-day streak | Night out / proper reward |
 | 🔥 30-day streak | Big reward — you earned it |
 | ⭐ 80/80 XP in a day | "Perfect Day" badge |
-| ❌ Streak broken | Reset counter — no shame, restart tomorrow |
 
 ---
 
