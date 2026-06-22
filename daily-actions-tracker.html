@@ -53,6 +53,9 @@
   .proto-row input{width:19px;height:19px;margin-top:2px;flex:none;}
   .proto-row label{font-size:14px;line-height:1.35;}
   .proto-progress{color:var(--sub);font-size:13px;margin-bottom:10px;}
+  .tabs{display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;}
+  .tab{flex:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;}
+  .tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 </style>
 </head>
 <body>
@@ -145,23 +148,44 @@ const PROTOCOL = [
   ]}
 ];
 
+const COPY_ACTIONS = [
+  {id:'c_ads', t:'Check Google Ads every morning — clicks, impressions, conversions'},
+  {id:'c_forward', t:'Forward any form submissions to Derrick immediately'},
+  {id:'c_tracking', t:'Update tracking spreadsheet with any new leads'},
+  {id:'c_calls', t:'50 cold calls minimum on weekdays'},
+  {id:'c_followup', t:'Follow up on any warm leads or unanswered emails from previous days'},
+  {id:'c_leadlist', t:'Build or refresh cold call spreadsheet — always have 50+ green leads ready for tomorrow'},
+  {id:'c_emails', t:'Respond to any client or prospect emails immediately'},
+  {id:'c_delivered', t:'Complete at least one piece of actual client work — something delivered'}
+];
+
+const COPY_OPTIONAL = [
+  {id:'o_trw', t:'(Optional) Check TRW for advice and post updates every 2 days'},
+  {id:'o_tasklist', t:'(Optional) Review and update master task list'},
+  {id:'o_learn', t:'(Optional) Read one thing that makes you better at your craft'}
+];
+
 const STORE_KEY = 'dailyActionsTracker_v1';
 let state = loadState();
 saveState();
-let view = {screen:'grid', date:null};
+let view = {tracker:'daily', screen:'grid', date:null};
 
 function loadState(){
-  let data = {};
-  try{ data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(e){ data = {}; }
+  let raw = {};
+  try{ raw = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(e){ raw = {}; }
+  const data = (raw.daily || raw.copy) ? raw : {daily: raw, copy: {}};
+  if(!data.daily) data.daily = {};
+  if(!data.copy) data.copy = {};
   DATES.forEach(d=>{
-    if(!data[d]) data[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}, protocolNote:''};
+    if(!data.daily[d]) data.daily[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}, protocolNote:''};
+    if(!data.copy[d]) data.copy[d] = {actions:{}, optional:{}};
   });
   return data;
 }
 function saveState(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 
 function protocolRequiredStats(d){
-  const day = state[d];
+  const day = state.daily[d];
   let total=0, done=0, block6Done=false, sawBlock6=false;
   PROTOCOL.forEach(sec=>sec.items.forEach(it=>{
     if(it.group==='block6'){
@@ -177,7 +201,7 @@ function protocolRequiredStats(d){
   return {done, total};
 }
 function dayPercent(d){
-  const day = state[d];
+  const day = state.daily[d];
   let count=0, total=0;
   ACTIONS.forEach(a=>{ total++; if(day.actions[a.id]) count++; });
   REFLECTIONS.forEach(r=>{ total++; if(day.reflections[r.id] && day.reflections[r.id].trim()!=='') count++; });
@@ -186,21 +210,46 @@ function dayPercent(d){
   return Math.round(count/total*100);
 }
 function protocolProgress(d){
-  const day = state[d];
+  const day = state.daily[d];
   let total=0, done=0;
   PROTOCOL.forEach(sec=>sec.items.forEach(it=>{ total++; if(day.protocol[it.id]) done++; }));
   return {done,total};
+}
+function copyPercent(d){
+  const day = state.copy[d];
+  let done=0;
+  COPY_ACTIONS.forEach(a=>{ if(day.actions[a.id]) done++; });
+  return Math.round(done/COPY_ACTIONS.length*100);
+}
+function combinedPercent(d){
+  return Math.round((dayPercent(d) + copyPercent(d))/2);
 }
 function fmtDate(d){
   const dt = new Date(d+'T00:00:00');
   return dt.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
 }
 
+function renderNav(){
+  const tabs = [['daily','Daily Actions'],['copy','Copywriting Constants Daily'],['overview','Overview']];
+  return `<div class="tabs">` + tabs.map(([key,label])=>
+    `<button class="tab ${view.tracker===key?'active':''}" data-tab="${key}">${label}</button>`
+  ).join('') + `</div>`;
+}
+
 function render(){
   const app = document.getElementById('app');
-  if(view.screen==='grid') app.innerHTML = renderGrid();
-  else if(view.screen==='day') app.innerHTML = renderDay(view.date);
-  else if(view.screen==='protocol') app.innerHTML = renderProtocol(view.date);
+  let body = '';
+  if(view.tracker==='overview'){
+    body = renderOverview();
+  } else if(view.tracker==='copy'){
+    if(view.screen==='day') body = renderCopyDay(view.date);
+    else body = renderCopyGrid();
+  } else {
+    if(view.screen==='day') body = renderDay(view.date);
+    else if(view.screen==='protocol') body = renderProtocol(view.date);
+    else body = renderGrid();
+  }
+  app.innerHTML = renderNav() + body;
   bindEvents();
 }
 
@@ -215,8 +264,60 @@ function renderGrid(){
   return html;
 }
 
+function renderCopyGrid(){
+  let html = `<h1>Copywriting Constants Daily</h1><div class="subtitle">22 June – 9 July</div><div class="grid">`;
+  DATES.forEach(d=>{
+    const pct = copyPercent(d);
+    const cls = pct===100 ? 'green' : 'red';
+    html += `<div class="sq ${cls}" data-copy-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderOverview(){
+  let html = `<h1>Overview</h1><div class="subtitle">Daily Actions + Copywriting combined</div><div class="grid">`;
+  DATES.forEach(d=>{
+    const pct = combinedPercent(d);
+    const cls = pct===100 ? 'green' : 'red';
+    html += `<div class="sq ${cls}" data-overview-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderCopyDay(d){
+  const day = state.copy[d];
+  const pct = copyPercent(d);
+  const cls = pct===100 ? 'green' : 'red';
+  let html = `<button class="back" data-action="back-copy-grid">&larr; All days</button>
+  <div class="day-header"><h1>${fmtDate(d)}</h1><span class="status-pill ${cls}">${pct}% Complete</span></div>
+
+  <div class="card"><h2>Must-Do (counts toward %)</h2>`;
+  COPY_ACTIONS.forEach(a=>{
+    const checked = day.actions[a.id] ? 'checked' : '';
+    html += `<div class="row">
+      <input type="checkbox" data-kind="copy-action" data-id="${a.id}" ${checked}>
+      <div style="flex:1"><div class="label">${a.t}</div></div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="card"><h2>Optional (does not affect %)</h2>`;
+  COPY_OPTIONAL.forEach(a=>{
+    const checked = day.optional[a.id] ? 'checked' : '';
+    html += `<div class="row">
+      <input type="checkbox" data-kind="copy-optional" data-id="${a.id}" ${checked}>
+      <div style="flex:1"><div class="label">${a.t}</div></div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  return html;
+}
+
 function renderDay(d){
-  const day = state[d];
+  const day = state.daily[d];
   const pct = dayPercent(d);
   const cls = pct===100 ? 'green' : 'red';
   const proto = protocolProgress(d);
@@ -262,7 +363,7 @@ function renderDay(d){
 }
 
 function renderProtocol(d){
-  const day = state[d];
+  const day = state.daily[d];
   const proto = protocolProgress(d);
   let html = `<button class="back" data-action="back-day">&larr; ${fmtDate(d)}</button>
   <h1>Daily Protocol Checklist</h1>
@@ -288,31 +389,45 @@ function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 
 function bindEvents(){
   const app = document.getElementById('app');
-  app.querySelectorAll('.sq').forEach(el=>{
-    el.addEventListener('click', ()=>{ view = {screen:'day', date: el.dataset.date}; render(); });
+
+  app.querySelectorAll('.tab').forEach(el=>{
+    el.addEventListener('click', ()=>{ view = {tracker: el.dataset.tab, screen:'grid', date:null}; render(); });
   });
+
+  app.querySelectorAll('[data-date]').forEach(el=>{
+    el.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'day', date: el.dataset.date}; render(); });
+  });
+  app.querySelectorAll('[data-copy-date]').forEach(el=>{
+    el.addEventListener('click', ()=>{ view = {tracker:'copy', screen:'day', date: el.dataset.copyDate}; render(); });
+  });
+  app.querySelectorAll('[data-overview-date]').forEach(el=>{
+    el.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'day', date: el.dataset.overviewDate}; render(); });
+  });
+
   const back = app.querySelector('[data-action="back-grid"]');
-  if(back) back.addEventListener('click', ()=>{ view = {screen:'grid', date:null}; render(); });
+  if(back) back.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'grid', date:null}; render(); });
   const backDay = app.querySelector('[data-action="back-day"]');
-  if(backDay) backDay.addEventListener('click', ()=>{ view = {screen:'day', date: view.date}; render(); });
+  if(backDay) backDay.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'day', date: view.date}; render(); });
   const openProto = app.querySelector('[data-action="open-protocol"]');
-  if(openProto) openProto.addEventListener('click', ()=>{ view = {screen:'protocol', date: view.date}; render(); });
+  if(openProto) openProto.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'protocol', date: view.date}; render(); });
+  const backCopyGrid = app.querySelector('[data-action="back-copy-grid"]');
+  if(backCopyGrid) backCopyGrid.addEventListener('click', ()=>{ view = {tracker:'copy', screen:'grid', date:null}; render(); });
 
   app.querySelectorAll('input[data-kind="action"]').forEach(el=>{
     el.addEventListener('change', ()=>{
-      state[view.date].actions[el.dataset.id] = el.checked;
+      state.daily[view.date].actions[el.dataset.id] = el.checked;
       saveState(); render();
     });
   });
   app.querySelectorAll('input[data-kind="note"]').forEach(el=>{
     el.addEventListener('input', ()=>{
-      state[view.date].notes[el.dataset.id] = el.value;
+      state.daily[view.date].notes[el.dataset.id] = el.value;
       saveState();
     });
   });
   app.querySelectorAll('textarea[data-kind="reflection"]').forEach(el=>{
     el.addEventListener('input', ()=>{
-      state[view.date].reflections[el.dataset.id] = el.value;
+      state.daily[view.date].reflections[el.dataset.id] = el.value;
       saveState();
       const pct = dayPercent(view.date);
       const pill = app.querySelector('.status-pill');
@@ -325,13 +440,13 @@ function bindEvents(){
   });
   app.querySelectorAll('input[data-kind="money"]').forEach(el=>{
     el.addEventListener('input', ()=>{
-      state[view.date].money = el.value;
+      state.daily[view.date].money = el.value;
       saveState();
     });
   });
   app.querySelectorAll('input[data-kind="protocol"]').forEach(el=>{
     el.addEventListener('change', ()=>{
-      state[view.date].protocol[el.dataset.id] = el.checked;
+      state.daily[view.date].protocol[el.dataset.id] = el.checked;
       saveState();
       const proto = protocolProgress(view.date);
       const prog = app.querySelector('.proto-progress');
@@ -340,7 +455,19 @@ function bindEvents(){
   });
   app.querySelectorAll('textarea[data-kind="protocol-note"]').forEach(el=>{
     el.addEventListener('input', ()=>{
-      state[view.date].protocolNote = el.value;
+      state.daily[view.date].protocolNote = el.value;
+      saveState();
+    });
+  });
+  app.querySelectorAll('input[data-kind="copy-action"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      state.copy[view.date].actions[el.dataset.id] = el.checked;
+      saveState(); render();
+    });
+  });
+  app.querySelectorAll('input[data-kind="copy-optional"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      state.copy[view.date].optional[el.dataset.id] = el.checked;
       saveState();
     });
   });
