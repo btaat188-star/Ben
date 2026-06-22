@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Actions Tracker</title>
+<style>
+  :root{
+    --red:#c0392b; --red-bg:#fdecea;
+    --green:#1e8449; --green-bg:#e9f7ef;
+    --ink:#1c1c1e; --sub:#6b6b70; --line:#e3e3e6; --bg:#f7f7f8; --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px;}
+  h1{font-size:22px;margin:4px 0 2px;}
+  .subtitle{color:var(--sub);font-size:14px;margin-bottom:18px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;}
+  .sq{border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;border:1px solid var(--line);transition:transform .08s;}
+  .sq:active{transform:scale(.96);}
+  .sq.red{background:var(--red-bg);color:var(--red);}
+  .sq.green{background:var(--green-bg);color:var(--green);}
+  .sq .d{font-weight:600;font-size:13px;}
+  .sq .p{font-size:18px;font-weight:700;margin-top:4px;}
+  .back{display:inline-flex;align-items:center;gap:4px;color:var(--sub);background:none;border:none;font-size:15px;padding:8px 0;cursor:pointer;}
+  .day-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .status-pill{padding:4px 12px;border-radius:999px;font-weight:700;font-size:13px;}
+  .status-pill.red{background:var(--red-bg);color:var(--red);}
+  .status-pill.green{background:var(--green-bg);color:var(--green);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;}
+  .card h2{font-size:15px;margin:0 0 10px;color:var(--sub);text-transform:uppercase;letter-spacing:.04em;}
+  .row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row input[type=checkbox]{width:20px;height:20px;margin-top:2px;flex:none;}
+  .row .label{font-weight:600;font-size:15px;}
+  .row .desc{color:var(--sub);font-size:13px;margin-top:2px;}
+  .row .note{margin-top:6px;}
+  .note input{width:100%;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;}
+  .reflection{padding:10px 0;border-bottom:1px solid var(--line);}
+  .reflection:last-child{border-bottom:none;}
+  .reflection .q{font-weight:600;font-size:14px;margin-bottom:6px;}
+  .reflection textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;min-height:44px;}
+  .reflection.empty textarea{border-color:#e0a8a0;}
+  .money{display:flex;align-items:center;gap:8px;}
+  .money input{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;width:140px;}
+  .protocol-link{display:flex;align-items:center;justify-content:space-between;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;cursor:pointer;text-align:left;font-size:15px;font-weight:600;color:var(--ink);}
+  .protocol-link .meta{color:var(--sub);font-weight:500;font-size:13px;}
+  .chev{color:var(--sub);font-size:18px;}
+  .block-title{font-size:13px;font-weight:700;color:var(--sub);margin:18px 0 6px;text-transform:uppercase;letter-spacing:.03em;}
+  .block-title:first-child{margin-top:0;}
+  .proto-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .proto-row:last-child{border-bottom:none;}
+  .proto-row input{width:19px;height:19px;margin-top:2px;flex:none;}
+  .proto-row label{font-size:14px;line-height:1.35;}
+  .proto-progress{color:var(--sub);font-size:13px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const DATES = (function(){
+  const out=[]; const start=new Date(2026,5,21); const end=new Date(2026,6,9);
+  let d=new Date(start);
+  while(d<=end){ out.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+  return out;
+})();
+
+const ACTIONS = [
+  {id:'sleep', label:'Sleep Schedule', desc:'8 hrs min · wake 7–8am · in bed by 11pm', note:'Hours slept / wake time'},
+  {id:'work', label:'Work Grind', desc:'As many hours as possible', note:'Hours today'},
+  {id:'coldcalls', label:'Cold Calls', desc:'50 cold calls minimum', note:'Calls made'},
+  {id:'carwash', label:'Car Washing', desc:'Every available day', note:'Hours today'},
+  {id:'gym', label:'Gym Session', desc:'Full workout', note:''},
+  {id:'eat', label:'Clean Eating', desc:'Drink enough · no scrolling · no bad habits', note:''}
+];
+
+const REFLECTIONS = [
+  {id:'triedBest', q:'Did I actually try my best today?'},
+  {id:'movedSpeed', q:'Did I move with speed and do everything immediately?'},
+  {id:'wastedTime', q:'Did I waste time today — how did it happen, and how do I stop it tomorrow?'},
+  {id:'biggestWin', q:'What was my biggest win today?'},
+  {id:'doDifferently', q:'What will I do differently tomorrow?'},
+  {id:'thankedGod', q:'Did I say thank you to God?'},
+  {id:'goodPerson', q:'Was I a good person today?'}
+];
+
+const PROTOCOL = [
+  {block:'07:30 — Block 1', items:[
+    {id:'b1_zooki', t:'Mix 1 Zooki Hydration sachet into 700ml–1L cold water'},
+    {id:'b1_drink', t:'Drink it (must be at least 700ml)'},
+    {id:'b1_probiotic', t:'Take 1 capsule H&B Live Friendly Bacteria (empty stomach)'}
+  ]},
+  {block:'08:15 — Block 2', items:[
+    {id:'b2_eggs', t:'Eat 5 whole fried eggs'},
+    {id:'b2_water', t:'Drink 300ml plain water'},
+    {id:'b2_rule', t:'Rule followed: breakfast window stayed pill-free'}
+  ]},
+  {block:'09:00–13:00 — Block 3', items:[
+    {id:'b3_work', t:'Do work experience / intensive manual labour'},
+    {id:'b3_water', t:'Sip 500ml plain water during this window'}
+  ]},
+  {block:'13:00 — Block 4', items:[
+    {id:'b4_meal', t:'Eat protein + carbs + greens (Salmon/Beef/Chicken + rice/potatoes + greens)'},
+    {id:'b4_blue', t:'1× Blue tablet (Vitabiotics Wellteen Him Plus)'},
+    {id:'b4_omega', t:'1× Yellow capsule Omega-3 (Vitabiotics Wellteen Him Plus)'},
+    {id:'b4_d3', t:'1× Vitamin D3 2000iu (HealthAid)'},
+    {id:'b4_water', t:'Drink 500ml plain water'},
+    {id:'b4_rule', t:'Rule followed: supplements taken with full stomach'}
+  ]},
+  {block:'15:30 — Block 5', items:[
+    {id:'b5_lionsmane', t:"Take 2 capsules Fourfive Lion's Mane Energy & Focus"},
+    {id:'b5_water', t:'Drink 500ml water'},
+    {id:'b5_deepwork', t:'(Optional) Copywriting / deep work (3–4 hours)'}
+  ]},
+  {block:'20:30–21:45 — Block 6', items:[
+    {id:'b6_gym', t:'Gym day: heavy weight training + sip 700ml water'},
+    {id:'b6_tennis', t:'Tennis day (if playing tennis instead): tennis session + sip 700ml water'},
+    {id:'b6_rule', t:'Rule followed: did NOT do heavy weights and intense tennis on the same day'}
+  ]},
+  {block:'22:00 — Block 7', items:[
+    {id:'b7_yogurt', t:'Eat thick bowl of Greek yogurt (optional: honey/berries)'},
+    {id:'b7_water', t:'Drink final 500ml water (to hit daily target)'}
+  ]},
+  {block:'Daily Rules', items:[
+    {id:'r_3meals', t:'3 meals only: ate exactly 3 clean meals'},
+    {id:'r_nosnack', t:'No snacking'},
+    {id:'r_nojunk', t:'No processed/junk food'},
+    {id:'r_noporn', t:'No pornography'},
+    {id:'r_nomb', t:'No masturbation'},
+    {id:'r_screens', t:'23:00 screen blackout: no screens after 11:00 PM'},
+    {id:'r_skincare', t:'Skincare / wind-down done'},
+    {id:'r_sleep', t:'Sleep target: asleep by 11:30 PM (aiming ~8 hours)'}
+  ]},
+  {block:'Conditional', items:[
+    {id:'c_manual', t:'Manual labour day hydration: drank +500ml–1L extra water'}
+  ]},
+  {block:'Weekly', items:[
+    {id:'w_tennis', t:'Weekly tennis session done (replaced a gym day, or on a rest day)'}
+  ]}
+];
+
+const STORE_KEY = 'dailyActionsTracker_v1';
+let state = loadState();
+let view = {screen:'grid', date:null};
+
+function loadState(){
+  let data = {};
+  try{ data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(e){ data = {}; }
+  DATES.forEach(d=>{
+    if(!data[d]) data[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}};
+  });
+  return data;
+}
+function saveState(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+function dayPercent(d){
+  const day = state[d];
+  let count=0;
+  ACTIONS.forEach(a=>{ if(day.actions[a.id]) count++; });
+  REFLECTIONS.forEach(r=>{ if(day.reflections[r.id] && day.reflections[r.id].trim()!=='') count++; });
+  return Math.round(count/(ACTIONS.length+REFLECTIONS.length)*100);
+}
+function protocolProgress(d){
+  const day = state[d];
+  let total=0, done=0;
+  PROTOCOL.forEach(sec=>sec.items.forEach(it=>{ total++; if(day.protocol[it.id]) done++; }));
+  return {done,total};
+}
+function fmtDate(d){
+  const dt = new Date(d+'T00:00:00');
+  return dt.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(view.screen==='grid') app.innerHTML = renderGrid();
+  else if(view.screen==='day') app.innerHTML = renderDay(view.date);
+  else if(view.screen==='protocol') app.innerHTML = renderProtocol(view.date);
+  bindEvents();
+}
+
+function renderGrid(){
+  let html = `<h1>Daily Actions Tracker</h1><div class="subtitle">21 June – 9 July</div><div class="grid">`;
+  DATES.forEach(d=>{
+    const pct = dayPercent(d);
+    const cls = pct===100 ? 'green' : 'red';
+    html += `<div class="sq ${cls}" data-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderDay(d){
+  const day = state[d];
+  const pct = dayPercent(d);
+  const cls = pct===100 ? 'green' : 'red';
+  const proto = protocolProgress(d);
+  let html = `<button class="back" data-action="back-grid">&larr; All days</button>
+  <div class="day-header"><h1>${fmtDate(d)}</h1><span class="status-pill ${cls}">${pct}% Complete</span></div>
+
+  <button class="protocol-link" data-action="open-protocol">
+    <span>Daily Protocol Checklist</span>
+    <span class="meta">${proto.done}/${proto.total} done &nbsp;›</span>
+  </button>
+
+  <div class="card"><h2>Actions</h2>`;
+  ACTIONS.forEach(a=>{
+    const checked = day.actions[a.id] ? 'checked' : '';
+    const noteVal = day.notes[a.id] || '';
+    html += `<div class="row">
+      <input type="checkbox" data-kind="action" data-id="${a.id}" ${checked}>
+      <div style="flex:1">
+        <div class="label">${a.label}</div>
+        <div class="desc">${a.desc}</div>
+        ${a.note ? `<div class="note"><input type="text" placeholder="${a.note}" data-kind="note" data-id="${a.id}" value="${escapeAttr(noteVal)}"></div>` : ''}
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="card"><h2>Reflection</h2>`;
+  REFLECTIONS.forEach(r=>{
+    const val = day.reflections[r.id] || '';
+    const emptyCls = val.trim()==='' ? 'empty' : '';
+    html += `<div class="reflection ${emptyCls}">
+      <div class="q">${r.q}</div>
+      <textarea data-kind="reflection" data-id="${r.id}" placeholder="Write something...">${escapeHtml(val)}</textarea>
+    </div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="card"><h2>Money</h2>
+    <div class="money">£ <input type="number" inputmode="decimal" data-kind="money" value="${escapeAttr(day.money||'')}" placeholder="0"></div>
+  </div>`;
+
+  return html;
+}
+
+function renderProtocol(d){
+  const day = state[d];
+  const proto = protocolProgress(d);
+  let html = `<button class="back" data-action="back-day">&larr; ${fmtDate(d)}</button>
+  <h1>Daily Protocol Checklist</h1>
+  <div class="proto-progress">${proto.done} / ${proto.total} done</div>`;
+  PROTOCOL.forEach(sec=>{
+    html += `<div class="block-title">${sec.block}</div>`;
+    sec.items.forEach(it=>{
+      const checked = day.protocol[it.id] ? 'checked' : '';
+      html += `<div class="proto-row">
+        <input type="checkbox" data-kind="protocol" data-id="${it.id}" ${checked}>
+        <label>${it.t}</label>
+      </div>`;
+    });
+  });
+  return html;
+}
+
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+
+function bindEvents(){
+  const app = document.getElementById('app');
+  app.querySelectorAll('.sq').forEach(el=>{
+    el.addEventListener('click', ()=>{ view = {screen:'day', date: el.dataset.date}; render(); });
+  });
+  const back = app.querySelector('[data-action="back-grid"]');
+  if(back) back.addEventListener('click', ()=>{ view = {screen:'grid', date:null}; render(); });
+  const backDay = app.querySelector('[data-action="back-day"]');
+  if(backDay) backDay.addEventListener('click', ()=>{ view = {screen:'day', date: view.date}; render(); });
+  const openProto = app.querySelector('[data-action="open-protocol"]');
+  if(openProto) openProto.addEventListener('click', ()=>{ view = {screen:'protocol', date: view.date}; render(); });
+
+  app.querySelectorAll('input[data-kind="action"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      state[view.date].actions[el.dataset.id] = el.checked;
+      saveState(); render();
+    });
+  });
+  app.querySelectorAll('input[data-kind="note"]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      state[view.date].notes[el.dataset.id] = el.value;
+      saveState();
+    });
+  });
+  app.querySelectorAll('textarea[data-kind="reflection"]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      state[view.date].reflections[el.dataset.id] = el.value;
+      saveState();
+      const pct = dayPercent(view.date);
+      const pill = app.querySelector('.status-pill');
+      if(pill){
+        pill.textContent = pct+'% Complete';
+        pill.className = 'status-pill ' + (pct===100?'green':'red');
+      }
+      el.closest('.reflection').classList.toggle('empty', el.value.trim()==='');
+    });
+  });
+  app.querySelectorAll('input[data-kind="money"]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      state[view.date].money = el.value;
+      saveState();
+    });
+  });
+  app.querySelectorAll('input[data-kind="protocol"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      state[view.date].protocol[el.dataset.id] = el.checked;
+      saveState();
+      const proto = protocolProgress(view.date);
+      const prog = app.querySelector('.proto-progress');
+      if(prog) prog.textContent = proto.done+' / '+proto.total+' done';
+    });
+  });
+}
+
+render();
+</script>
+</body>
+</html>
