@@ -177,6 +177,7 @@ let view = {tracker:'daily', screen:'grid', date:null};
 let syncId = localStorage.getItem(SYNC_KEY) || '';
 let syncStatus = 'idle';
 let cloudPushTimer = null;
+let lastSyncTime = null;
 
 function ensureDates(data){
   if(!data.daily) data.daily = {};
@@ -203,24 +204,26 @@ function setSyncStatus(s){
 }
 function syncStatusText(){
   if(!syncId) return '';
-  if(syncStatus==='connecting') return 'Connecting…';
-  if(syncStatus==='ok') return '✓ Synced';
+  if(syncStatus==='connecting') return 'Syncing…';
+  if(syncStatus==='ok') return '✓ Synced' + (lastSyncTime ? ' at ' + lastSyncTime.toLocaleTimeString() : '');
   if(syncStatus==='error') return '⚠ Could not reach sync server (will retry on your next change)';
   return '';
 }
 function cloudPush(){
   if(!syncId) return;
   clearTimeout(cloudPushTimer);
-  cloudPushTimer = setTimeout(()=>{
-    fetch('https://kvdb.io/'+syncId+'/state', {method:'POST', body: JSON.stringify(state)})
-      .then(r=>{ if(!r.ok) throw new Error('bad status'); setSyncStatus('ok'); })
-      .catch(()=>{ setSyncStatus('error'); });
-  }, 500);
+  cloudPushTimer = setTimeout(doCloudPush, 500);
+}
+function doCloudPush(){
+  if(!syncId) return Promise.resolve();
+  return fetch('https://kvdb.io/'+syncId+'/state', {method:'POST', body: JSON.stringify(state)})
+    .then(r=>{ if(!r.ok) throw new Error('bad status'); lastSyncTime = new Date(); setSyncStatus('ok'); })
+    .catch(()=>{ setSyncStatus('error'); });
 }
 function cloudPull(){
-  if(!syncId) return;
+  if(!syncId) return Promise.resolve();
   setSyncStatus('connecting');
-  fetch('https://kvdb.io/'+syncId+'/state')
+  return fetch('https://kvdb.io/'+syncId+'/state')
     .then(r=>{
       if(r.status===404) return null;
       if(!r.ok) throw new Error('bad status');
@@ -232,10 +235,16 @@ function cloudPull(){
         state = ensureDates(parsed);
         saveLocalOnly();
       }
+      lastSyncTime = new Date();
       setSyncStatus('ok');
       render();
     })
     .catch(()=>{ setSyncStatus('error'); render(); });
+}
+function manualSync(){
+  clearTimeout(cloudPushTimer);
+  setSyncStatus('connecting');
+  doCloudPush().then(cloudPull);
 }
 function createSyncCode(){
   setSyncStatus('connecting');
@@ -316,9 +325,10 @@ function renderSync(){
     html += `<div class="card">
       <h2>Status</h2>
       <p class="sync-status" id="sync-status">${syncStatusText()}</p>
-      <h2>Your Sync Code</h2>
+      <button class="protocol-link" data-action="manual-sync"><span>Sync Now</span></button>
+      <h2 style="margin-top:18px;">Your Sync Code</h2>
       <div class="sync-code">${escapeHtml(syncId)}</div>
-      <div class="desc">Open this same page on your other device, go to the Sync tab, and paste this exact code into "I already have a code". After that both devices stay in sync automatically — just keep this page open (or revisit the Sync tab) when you want the latest changes pulled in.</div>
+      <div class="desc">Open this same page on your other device, go to the Sync tab, and paste this exact code into "I already have a code". After that both devices push changes automatically — tap "Sync Now" (or revisit this tab) on a device when you want it to grab the other device's latest changes.</div>
     </div>`;
   } else {
     html += `<div class="card">
@@ -582,6 +592,8 @@ function bindEvents(){
     const input = app.querySelector('#sync-code-input');
     if(input) connectSyncCode(input.value);
   });
+  const manualSyncBtn = app.querySelector('[data-action="manual-sync"]');
+  if(manualSyncBtn) manualSyncBtn.addEventListener('click', manualSync);
 }
 
 render();
