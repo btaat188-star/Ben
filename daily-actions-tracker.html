@@ -53,6 +53,7 @@
   .proto-row input{width:19px;height:19px;margin-top:2px;flex:none;}
   .proto-row label{font-size:14px;line-height:1.35;}
   .proto-progress{color:var(--sub);font-size:13px;margin-bottom:10px;}
+  .block-note{color:var(--sub);font-size:12.5px;line-height:1.4;margin:-4px 0 8px;}
   .tabs{display:flex;gap:6px;margin-bottom:18px;overflow-x:auto;}
   .tab{flex:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;}
   .tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
@@ -99,21 +100,21 @@ const PROTOCOL = [
     {id:'morning_routine', t:'Followed normal morning routine (original)'},
     {id:'night_routine', t:'Followed night routine (original)'}
   ]},
-  {block:'07:30 — Block 1', items:[
+  {block:'07:30 — Block 1', note:'Flexible window: 07:00–09:00 AM, within the first 60–90 min of waking. Keep a 45-min gap before eating eggs (Block 2) so the live bacteria can clear your stomach acid.', items:[
     {id:'b1_zooki', t:'Mix 1 Zooki Hydration sachet into 700ml–1L cold water'},
     {id:'b1_drink', t:'Drink it (must be at least 700ml)'},
     {id:'b1_probiotic', t:'Take 1 capsule H&B Live Friendly Bacteria (empty stomach)'}
   ]},
-  {block:'08:15 — Block 2', items:[
+  {block:'08:15 — Block 2', note:'Flexible window: 07:00–09:00 AM. Must be at least 45 min after your Zooki drink (Block 1).', items:[
     {id:'b2_eggs', t:'Eat 5 whole fried eggs'},
     {id:'b2_water', t:'Drink 300ml plain water'},
     {id:'b2_rule', t:'Rule followed: breakfast window stayed pill-free'}
   ]},
-  {block:'09:00–13:00 — Block 3', items:[
+  {block:'09:00–13:00 — Block 3', note:"Flexible window: 09:00 AM–02:00 PM. Timing of the work itself doesn't matter — just sip the 500ml water gradually across this window to keep your muscles hydrated.", items:[
     {id:'b3_work', t:'Do work (work experience if on today)'},
     {id:'b3_water', t:'Sip 500ml plain water during this window'}
   ]},
-  {block:'13:00 — Block 4', items:[
+  {block:'13:00 — Block 4', note:'Flexible window: 12:00–02:30 PM. Lunch timing is flexible, but take the Wellteen tablets + Vitamin D3 while actively eating solid protein — never on an empty stomach later in the afternoon.', items:[
     {id:'b4_meal', t:'Eat protein + carbs + greens (Salmon/Beef/Chicken + rice/potatoes + greens)'},
     {id:'b4_blue', t:'1× Blue tablet (Vitabiotics Wellteen Him Plus)'},
     {id:'b4_omega', t:'1× Yellow capsule Omega-3 (Vitabiotics Wellteen Him Plus)'},
@@ -121,18 +122,18 @@ const PROTOCOL = [
     {id:'b4_water', t:'Drink 500ml plain water'},
     {id:'b4_rule', t:'Rule followed: supplements taken with full stomach'}
   ]},
-  {block:'15:30 — Block 5', items:[
+  {block:'15:30 — Block 5', note:"Flexible window: 03:00–05:00 PM (can shift for car washing). Keep a strict 7-hour gap from your 07:30 AM Zooki drink to avoid caffeine stacking, and never take Lion's Mane after 05:30 PM or it'll interfere with sleep.", items:[
     {id:'b5_lionsmane', t:"Take 2 capsules Fourfive Lion's Mane Energy & Focus"},
     {id:'b5_water', t:'Drink 500ml water'},
     {id:'b5_deepwork', t:'(Optional, as may be doing car washing in this block) Copywriting / deep work (3–4 hours)', optional:true}
   ]},
-  {block:'20:30–21:45 — Block 6', items:[
+  {block:'20:30–21:45 — Block 6', note:'Flexible window: 07:30–09:30 PM. Training time can move, but it must finish at least 90 min before you sleep so your nervous system can drop the workout adrenaline.', items:[
     {id:'b6_gym', t:'Gym day: heavy weight training + sip 700ml water', group:'block6'},
     {id:'b6_tennis', t:'Tennis day (if playing tennis instead): tennis session + sip 700ml water', group:'block6'},
     {id:'b6_rule', t:'Rule followed: did NOT do heavy weights and intense tennis on the same day'}
   ]},
-  {block:'22:00 — Block 7', items:[
-    {id:'b7_yogurt', t:'Eat thick bowl of Greek yogurt (optional: honey/berries)'},
+  {block:'22:00–22:15 — Block 7', note:'Flexible window: 09:45–10:45 PM. Eat the yogurt within 30 min of leaving the gym — shifting slightly is fine, but it must be your last food of the night to feed your muscles overnight and trigger sleep hormones.', items:[
+    {id:'b7_yogurt', t:"Eat thick bowl of Greek yogurt (optional: honey/berries) — as soon as you're home from the gym, to switch off workout adrenaline"},
     {id:'b7_water', t:'Drink final 500ml water (to hit daily target)'}
   ]},
   {block:'Daily Rules', items:[
@@ -141,7 +142,7 @@ const PROTOCOL = [
     {id:'r_nojunk', t:'No processed/junk food'},
     {id:'r_noporn', t:'No pornography'},
     {id:'r_nomb', t:'No masturbation'},
-    {id:'r_screens', t:'(Optional) 23:00 screen blackout: no screens after 11:00 PM', optional:true}
+    {id:'r_screens', t:"(Best effort) 23:00 screen blackout — no blue-light screens after 11:00 PM. Since you train at 8:30 PM, this is a real biological requirement: screens past 11 PM halt melatonin, delay sleep, and cut into height optimization, muscle recovery, and next-day copywriting focus. Give it your best effort.", optional:true}
   ]},
   {block:'Conditional', items:[
     {id:'c_manual', t:"(If a lot of manual labour) drank +500ml–1L extra water", optional:true}
@@ -471,6 +472,7 @@ function renderProtocol(d){
   <div class="proto-progress">${proto.done} / ${proto.total} done</div>`;
   PROTOCOL.forEach(sec=>{
     html += `<div class="block-title">${sec.block}</div>`;
+    if(sec.note) html += `<div class="block-note">${sec.note}</div>`;
     sec.items.forEach(it=>{
       const checked = day.protocol[it.id] ? 'checked' : '';
       html += `<div class="proto-row">
