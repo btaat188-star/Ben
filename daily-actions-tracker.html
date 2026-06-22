@@ -63,7 +63,7 @@ function toISODate(dt){
   return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
 }
 const DATES = (function(){
-  const out=[]; const start=new Date(2026,5,21); const end=new Date(2026,6,9);
+  const out=[]; const start=new Date(2026,5,22); const end=new Date(2026,6,9);
   let d=new Date(start);
   while(d<=end){ out.push(toISODate(d)); d.setDate(d.getDate()+1); }
   return out;
@@ -149,31 +149,9 @@ let state = loadState();
 saveState();
 let view = {screen:'grid', date:null};
 
-function hasContent(day){
-  if(!day) return false;
-  if(Object.values(day.actions||{}).some(Boolean)) return true;
-  if(Object.values(day.protocol||{}).some(Boolean)) return true;
-  if(Object.values(day.notes||{}).some(v=>v && v.trim()!=='')) return true;
-  if(Object.values(day.reflections||{}).some(v=>v && v.trim()!=='')) return true;
-  if(day.money && String(day.money).trim()!=='') return true;
-  return false;
-}
 function loadState(){
   let data = {};
   try{ data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(e){ data = {}; }
-  const dateSet = new Set(DATES);
-  // Migrate data saved under a previous timezone bug that shifted every date back by 1 day.
-  Object.keys(data).forEach(key=>{
-    if(dateSet.has(key)) return;
-    const orphanDt = new Date(key+'T00:00:00');
-    if(isNaN(orphanDt)) return;
-    orphanDt.setDate(orphanDt.getDate()+1);
-    const candidate = toISODate(orphanDt);
-    if(dateSet.has(candidate) && hasContent(data[key]) && !hasContent(data[candidate])){
-      data[candidate] = data[key];
-    }
-    delete data[key];
-  });
   DATES.forEach(d=>{
     if(!data[d]) data[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}};
   });
