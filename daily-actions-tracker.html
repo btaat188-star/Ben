@@ -66,7 +66,7 @@ const DATES = (function(){
 })();
 
 const ACTIONS = [
-  {id:'sleep', label:'Sleep Schedule', desc:'8 hrs min · wake 7–8am · in bed by 11pm', note:'Hours slept / wake time'},
+  {id:'sleep', label:'Sleep Schedule', desc:'Asleep by 11:30pm, aiming for 8 hours · wake up between 7–8am', note:'Hours slept / wake time'},
   {id:'work', label:'Work Grind', desc:'As many hours as possible', note:'Hours today'},
   {id:'coldcalls', label:'Cold Calls', desc:'50 cold calls minimum', note:'Calls made'},
   {id:'carwash', label:'Car Washing', desc:'Every available day', note:'Hours today'},
@@ -96,7 +96,7 @@ const PROTOCOL = [
     {id:'b2_rule', t:'Rule followed: breakfast window stayed pill-free'}
   ]},
   {block:'09:00–13:00 — Block 3', items:[
-    {id:'b3_work', t:'Do work experience / intensive manual labour'},
+    {id:'b3_work', t:'Do work (work experience if on today)'},
     {id:'b3_water', t:'Sip 500ml plain water during this window'}
   ]},
   {block:'13:00 — Block 4', items:[
@@ -110,12 +110,11 @@ const PROTOCOL = [
   {block:'15:30 — Block 5', items:[
     {id:'b5_lionsmane', t:"Take 2 capsules Fourfive Lion's Mane Energy & Focus"},
     {id:'b5_water', t:'Drink 500ml water'},
-    {id:'b5_deepwork', t:'(Optional) Copywriting / deep work (3–4 hours)'}
+    {id:'b5_deepwork', t:'(Optional) Copywriting / deep work (3–4 hours)', optional:true}
   ]},
   {block:'20:30–21:45 — Block 6', items:[
-    {id:'b6_gym', t:'Gym day: heavy weight training + sip 700ml water'},
-    {id:'b6_tennis', t:'Tennis day (if playing tennis instead): tennis session + sip 700ml water'},
-    {id:'b6_rule', t:'Rule followed: did NOT do heavy weights and intense tennis on the same day'}
+    {id:'b6_gym', t:'Gym day: heavy weight training + sip 700ml water', group:'block6'},
+    {id:'b6_tennis', t:'Tennis day (if playing tennis instead, no heavy weights on intense tennis day): tennis session + sip 700ml water', group:'block6'}
   ]},
   {block:'22:00 — Block 7', items:[
     {id:'b7_yogurt', t:'Eat thick bowl of Greek yogurt (optional: honey/berries)'},
@@ -127,15 +126,14 @@ const PROTOCOL = [
     {id:'r_nojunk', t:'No processed/junk food'},
     {id:'r_noporn', t:'No pornography'},
     {id:'r_nomb', t:'No masturbation'},
-    {id:'r_screens', t:'23:00 screen blackout: no screens after 11:00 PM'},
-    {id:'r_skincare', t:'Skincare / wind-down done'},
-    {id:'r_sleep', t:'Sleep target: asleep by 11:30 PM (aiming ~8 hours)'}
+    {id:'r_screens', t:'(Optional) 23:00 screen blackout: no screens after 11:00 PM', optional:true},
+    {id:'r_skincare', t:'Skincare and night routine and winding down done'}
   ]},
   {block:'Conditional', items:[
-    {id:'c_manual', t:'Manual labour day hydration: drank +500ml–1L extra water'}
+    {id:'c_manual', t:"(If a lot of manual labour) drank +500ml–1L extra water", optional:true}
   ]},
   {block:'Weekly', items:[
-    {id:'w_tennis', t:'Weekly tennis session done (replaced a gym day, or on a rest day)'}
+    {id:'w_tennis', t:'Weekly tennis session done (replaced a gym day, or on a rest day)', optional:true}
   ]}
 ];
 
@@ -153,12 +151,30 @@ function loadState(){
 }
 function saveState(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 
+function protocolRequiredStats(d){
+  const day = state[d];
+  let total=0, done=0, block6Done=false, sawBlock6=false;
+  PROTOCOL.forEach(sec=>sec.items.forEach(it=>{
+    if(it.group==='block6'){
+      sawBlock6 = true;
+      if(day.protocol[it.id]) block6Done = true;
+      return;
+    }
+    if(it.optional) return;
+    total++;
+    if(day.protocol[it.id]) done++;
+  }));
+  if(sawBlock6){ total++; if(block6Done) done++; }
+  return {done, total};
+}
 function dayPercent(d){
   const day = state[d];
-  let count=0;
-  ACTIONS.forEach(a=>{ if(day.actions[a.id]) count++; });
-  REFLECTIONS.forEach(r=>{ if(day.reflections[r.id] && day.reflections[r.id].trim()!=='') count++; });
-  return Math.round(count/(ACTIONS.length+REFLECTIONS.length)*100);
+  let count=0, total=0;
+  ACTIONS.forEach(a=>{ total++; if(day.actions[a.id]) count++; });
+  REFLECTIONS.forEach(r=>{ total++; if(day.reflections[r.id] && day.reflections[r.id].trim()!=='') count++; });
+  const proto = protocolRequiredStats(d);
+  count += proto.done; total += proto.total;
+  return Math.round(count/total*100);
 }
 function protocolProgress(d){
   const day = state[d];
