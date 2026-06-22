@@ -39,7 +39,7 @@
   .reflection{padding:10px 0;border-bottom:1px solid var(--line);}
   .reflection:last-child{border-bottom:none;}
   .reflection .q{font-weight:600;font-size:14px;margin-bottom:6px;}
-  .reflection textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;min-height:44px;}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;font-family:inherit;resize:vertical;min-height:44px;}
   .reflection.empty textarea{border-color:#e0a8a0;}
   .money{display:flex;align-items:center;gap:8px;}
   .money input{border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;width:140px;}
@@ -153,7 +153,7 @@ function loadState(){
   let data = {};
   try{ data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }catch(e){ data = {}; }
   DATES.forEach(d=>{
-    if(!data[d]) data[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}};
+    if(!data[d]) data[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}, protocolNote:''};
   });
   return data;
 }
@@ -276,6 +276,9 @@ function renderProtocol(d){
       </div>`;
     });
   });
+  html += `<div class="card"><h2>Notes</h2>
+    <textarea data-kind="protocol-note" placeholder="e.g. had 3 eggs instead of 5...">${escapeHtml(day.protocolNote||'')}</textarea>
+  </div>`;
   return html;
 }
 
@@ -332,6 +335,12 @@ function bindEvents(){
       const proto = protocolProgress(view.date);
       const prog = app.querySelector('.proto-progress');
       if(prog) prog.textContent = proto.done+' / '+proto.total+' done';
+    });
+  });
+  app.querySelectorAll('textarea[data-kind="protocol-note"]').forEach(el=>{
+    el.addEventListener('input', ()=>{
+      state[view.date].protocolNote = el.value;
+      saveState();
     });
   });
 }
