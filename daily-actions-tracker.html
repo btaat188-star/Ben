@@ -60,6 +60,7 @@
   .sync-code{font-size:24px;font-weight:700;letter-spacing:.04em;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:14px;text-align:center;margin:10px 0;word-break:break-all;}
   .sync-input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:14px;margin-bottom:10px;}
   .sync-status{font-size:13px;color:var(--sub);margin:0 0 10px;}
+  .copy-reminder{text-decoration:underline;font-weight:700;font-size:13px;margin:-6px 0 10px;}
 </style>
 </head>
 <body>
@@ -154,13 +155,13 @@ const PROTOCOL = [
 
 const COPY_ACTIONS = [
   {id:'c_calls', t:'50 cold calls minimum on weekdays — biggest money maker right now'},
-  {id:'c_forward', t:'Forward any form submissions to Derrick immediately'},
+  {id:'c_forward', t:'Forward any form submissions to Derrick immediately', optional:true},
   {id:'c_ads', t:'Check Google Ads every morning — clicks, impressions, conversions'},
-  {id:'c_emails', t:'Respond to any client or prospect emails immediately'},
-  {id:'c_followup', t:'Follow up on warm leads from previous days'},
+  {id:'c_emails', t:'Respond to any client or prospect emails immediately', optional:true},
+  {id:'c_followup', t:'Follow up on warm leads from previous days', optional:true},
   {id:'c_leadlist', t:'Build or refresh cold call spreadsheet — 50+ green leads ready for tomorrow'},
-  {id:'c_tracking', t:'Update tracking spreadsheet with any new leads'},
-  {id:'c_delivered', t:'Complete at least one piece of actual client work'}
+  {id:'c_tracking', t:'Update tracking spreadsheet with any new leads', optional:true},
+  {id:'c_delivered', t:'Complete at least one piece of actual client work (tick if there was any to do)', optional:true}
 ];
 
 const COPY_OPTIONAL = [
@@ -300,9 +301,13 @@ function protocolProgress(d){
 }
 function copyPercent(d){
   const day = state.copy[d];
-  let done=0;
-  COPY_ACTIONS.forEach(a=>{ if(day.actions[a.id]) done++; });
-  return Math.round(done/COPY_ACTIONS.length*100);
+  let total=0, done=0;
+  COPY_ACTIONS.forEach(a=>{
+    if(a.optional) return;
+    total++;
+    if(day.actions[a.id]) done++;
+  });
+  return Math.round(done/total*100);
 }
 function combinedPercent(d){
   return Math.round((dayPercent(d) + copyPercent(d))/2);
@@ -377,7 +382,7 @@ function renderGrid(){
 }
 
 function renderCopyGrid(){
-  let html = `<h1>Copywriting Constants Daily</h1><div class="subtitle">22 June – 9 July</div><div class="grid">`;
+  let html = `<h1>Copywriting Constants Daily</h1><div class="copy-reminder">Remember: these will change over time</div><div class="subtitle">22 June – 9 July</div><div class="grid">`;
   DATES.forEach(d=>{
     const pct = copyPercent(d);
     const cls = pct===100 ? 'green' : 'red';
@@ -403,6 +408,7 @@ function renderCopyDay(d){
   const pct = copyPercent(d);
   const cls = pct===100 ? 'green' : 'red';
   let html = `<button class="back" data-action="back-copy-grid">&larr; All days</button>
+  <div class="copy-reminder">Remember: these will change over time</div>
   <div class="day-header"><h1>${fmtDate(d)}</h1><span class="status-pill ${cls}">${pct}% Complete</span></div>
 
   <div class="card"><h2>Must-Do (counts toward %)</h2>`;
