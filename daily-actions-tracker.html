@@ -299,11 +299,16 @@ function protocolProgress(d){
   PROTOCOL.forEach(sec=>sec.items.forEach(it=>{ total++; if(day.protocol[it.id]) done++; }));
   return {done,total};
 }
+function isWeekend(d){
+  const day = new Date(d+'T00:00:00').getDay();
+  return day===0 || day===6;
+}
 function copyPercent(d){
   const day = state.copy[d];
   let total=0, done=0;
   COPY_ACTIONS.forEach(a=>{
     if(a.optional) return;
+    if(a.id==='c_calls' && isWeekend(d)) return;
     total++;
     if(day.actions[a.id]) done++;
   });
@@ -414,9 +419,11 @@ function renderCopyDay(d){
   <div class="card"><h2>Must-Do (counts toward %)</h2>`;
   COPY_ACTIONS.forEach(a=>{
     const checked = day.actions[a.id] ? 'checked' : '';
+    const weekendSkip = a.id==='c_calls' && isWeekend(d);
+    const label = weekendSkip ? a.t + ' (not required on weekends)' : a.t;
     html += `<div class="row">
       <input type="checkbox" data-kind="copy-action" data-id="${a.id}" ${checked}>
-      <div style="flex:1"><div class="label">${a.t}</div></div>
+      <div style="flex:1"><div class="label">${label}</div></div>
     </div>`;
   });
   html += `</div>`;
