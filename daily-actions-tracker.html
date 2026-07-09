@@ -73,13 +73,6 @@ function toISODate(dt){
   return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
 }
 const DATES = (function(){
-  const out=[]; const start=new Date(2026,5,22); const end=new Date(2026,6,9);
-  let d=new Date(start);
-  while(d<=end){ out.push(toISODate(d)); d.setDate(d.getDate()+1); }
-  return out;
-})();
-
-const SUMMER_DATES = (function(){
   const out=[]; const start=new Date(2026,6,9); const end=new Date(2026,8,8);
   let d=new Date(start);
   while(d<=end){ out.push(toISODate(d)); d.setDate(d.getDate()+1); }
@@ -97,7 +90,7 @@ const SPECIAL_DATE_LABELS = {
 };
 
 const ACTIONS = [
-  {id:'sleep', label:'Sleep Schedule', desc:'Asleep by 11:30pm, aiming for 8 hours · wake up between 7–8am', note:'Hours slept / wake time'},
+  {id:'sleep', label:'Sleep Schedule', desc:'Asleep by 11:30pm, aiming for 8 hours · wake up between 7:30–8am', note:'Hours slept / wake time'},
   {id:'work', label:'Work Grind', desc:'As many hours as possible', note:'Hours today'},
   {id:'coldcalls', label:'Cold Calls', desc:'50 cold calls minimum', note:'Calls made'},
   {id:'carwash', label:'Car Washing', desc:'Every available day', note:'Hours today'},
@@ -202,8 +195,7 @@ let lastSyncTime = null;
 function ensureDates(data){
   if(!data.daily) data.daily = {};
   if(!data.copy) data.copy = {};
-  const allDates = [...new Set([...DATES, ...SUMMER_DATES])];
-  allDates.forEach(d=>{
+  DATES.forEach(d=>{
     if(!data.daily[d]) data.daily[d] = {actions:{}, notes:{}, reflections:{}, money:'', protocol:{}, protocolNote:''};
     if(!data.copy[d]) data.copy[d] = {actions:{}, optional:{}};
   });
@@ -343,7 +335,7 @@ function fmtDate(d){
 }
 
 function renderNav(){
-  const tabs = [['daily','Daily Actions'],['copy','Copywriting Constants Daily'],['overview','Overview'],['summer','Summer Plan'],['sync', syncId ? 'Sync ✓' : 'Sync']];
+  const tabs = [['daily','Daily Actions'],['copy','Copywriting Constants Daily'],['overview','Overview'],['sync', syncId ? 'Sync ✓' : 'Sync']];
   return `<div class="tabs">` + tabs.map(([key,label])=>
     `<button class="tab ${view.tracker===key?'active':''}" data-tab="${key}">${label}</button>`
   ).join('') + `</div>`;
@@ -386,10 +378,6 @@ function render(){
     else body = renderCopyGrid();
   } else if(view.tracker==='sync'){
     body = renderSync();
-  } else if(view.tracker==='summer'){
-    if(view.screen==='day') body = renderDay(view.date);
-    else if(view.screen==='protocol') body = renderProtocol(view.date);
-    else body = renderSummerGrid();
   } else {
     if(view.screen==='day') body = renderDay(view.date);
     else if(view.screen==='protocol') body = renderProtocol(view.date);
@@ -400,37 +388,31 @@ function render(){
 }
 
 function renderGrid(){
-  let html = `<h1>Daily Actions Tracker</h1><div class="subtitle">22 June – 9 July</div><div class="grid">`;
+  let html = `<h1>Daily Actions Tracker</h1><div class="subtitle">9 July – 8 September</div><div class="grid">`;
   DATES.forEach(d=>{
-    const pct = dayPercent(d);
-    const cls = pct===100 ? 'green' : 'red';
-    html += `<div class="sq ${cls}" data-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+    const special = SPECIAL_DATE_LABELS[d];
+    if(special){
+      html += `<div class="sq special"><div class="d">${fmtDate(d)}</div><div class="p">${special}</div></div>`;
+    } else {
+      const pct = dayPercent(d);
+      const cls = pct===100 ? 'green' : 'red';
+      html += `<div class="sq ${cls}" data-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+    }
   });
   html += `</div>`;
   return html;
 }
 
 function renderCopyGrid(){
-  let html = `<h1>Copywriting Constants Daily</h1><div class="copy-reminder">Remember: these will change over time</div><div class="subtitle">22 June – 9 July</div><div class="grid">`;
+  let html = `<h1>Copywriting Constants Daily</h1><div class="copy-reminder">Remember: these will change over time</div><div class="subtitle">9 July – 8 September</div><div class="grid">`;
   DATES.forEach(d=>{
-    const pct = copyPercent(d);
-    const cls = pct===100 ? 'green' : 'red';
-    html += `<div class="sq ${cls}" data-copy-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
-  });
-  html += `</div>`;
-  return html;
-}
-
-function renderSummerGrid(){
-  let html = `<h1>Summer Plan</h1><div class="subtitle">9 July – 8 September 2026</div><div class="grid">`;
-  SUMMER_DATES.forEach(d=>{
     const special = SPECIAL_DATE_LABELS[d];
     if(special){
       html += `<div class="sq special"><div class="d">${fmtDate(d)}</div><div class="p">${special}</div></div>`;
     } else {
-      const pct = combinedPercent(d);
+      const pct = copyPercent(d);
       const cls = pct===100 ? 'green' : 'red';
-      html += `<div class="sq ${cls}" data-summer-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+      html += `<div class="sq ${cls}" data-copy-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
     }
   });
   html += `</div>`;
@@ -440,9 +422,14 @@ function renderSummerGrid(){
 function renderOverview(){
   let html = `<h1>Overview</h1><div class="subtitle">Daily Actions + Copywriting combined</div><div class="grid">`;
   DATES.forEach(d=>{
-    const pct = combinedPercent(d);
-    const cls = pct===100 ? 'green' : 'red';
-    html += `<div class="sq ${cls}" data-overview-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+    const special = SPECIAL_DATE_LABELS[d];
+    if(special){
+      html += `<div class="sq special"><div class="d">${fmtDate(d)}</div><div class="p">${special}</div></div>`;
+    } else {
+      const pct = combinedPercent(d);
+      const cls = pct===100 ? 'green' : 'red';
+      html += `<div class="sq ${cls}" data-overview-date="${d}"><div class="d">${fmtDate(d)}</div><div class="p">${pct}%</div></div>`;
+    }
   });
   html += `</div>`;
   return html;
@@ -569,14 +556,11 @@ function bindEvents(){
   app.querySelectorAll('[data-overview-date]').forEach(el=>{
     el.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'day', date: el.dataset.overviewDate}; render(); });
   });
-  app.querySelectorAll('[data-summer-date]').forEach(el=>{
-    el.addEventListener('click', ()=>{ view = {tracker:'summer', screen:'day', date: el.dataset.summerDate}; render(); });
-  });
 
   const back = app.querySelector('[data-action="back-grid"]');
-  if(back) back.addEventListener('click', ()=>{ view = {tracker:view.tracker, screen:'grid', date:null}; render(); });
+  if(back) back.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'grid', date:null}; render(); });
   const backDay = app.querySelector('[data-action="back-day"]');
-  if(backDay) backDay.addEventListener('click', ()=>{ view = {tracker:view.tracker, screen:'day', date: view.date}; render(); });
+  if(backDay) backDay.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'day', date: view.date}; render(); });
   const openProto = app.querySelector('[data-action="open-protocol"]');
   if(openProto) openProto.addEventListener('click', ()=>{ view = {tracker:'daily', screen:'protocol', date: view.date}; render(); });
   const backCopyGrid = app.querySelector('[data-action="back-copy-grid"]');
